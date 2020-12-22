@@ -27,7 +27,6 @@ class Config:
 
         self.loglevel = config.get("loglevel", "INFO")
         self.sub_name = config["sub_name"]
-        self.sandbox = config["sandbox"]
         self.pull_delay = config.get("pull_delay", 5) * 60  # in minutes
 
         self.wiki = config["wiki"]
@@ -49,6 +48,23 @@ class Bot:
         self.config = config
         self.timers = []
         self.reddit.validate_on_submit = True
+
+    def is_moderator(self, sub):
+        if not sub:
+            return False
+
+        subreddit = None
+        if type(sub) is praw.models.reddit.subreddit.Subreddit:
+            subreddit = sub
+        elif type(sub) is str:
+            subreddit = self.reddit.subreddit(sub)
+        else:
+            return False
+
+        for mod in subreddit.moderator():
+            if mod.name == self.reddit.user.me().name:
+                return True
+        return False
 
     def update(self):
         posts = []
@@ -111,8 +127,8 @@ class Bot:
             if not section.get("update", True):
                 return None
 
-            if config.sandbox:
-                post["subreddit"] = reddit.subreddit(config.sandbox)
+            if section.get("sandbox"):
+                post["subreddit"] = reddit.subreddit(section.get("sandbox"))
             else:
                 post["subreddit"] = subreddit
 
@@ -131,13 +147,14 @@ class Bot:
                 post["text"] = page.content_md
 
             post["post_time"] = parse(section.get("post_time"))
-            post["distinguish"] = section.get("distinguish", not config.sandbox)
+            post["distinguish"] = section.get("distinguish", self.is_moderator(post["subreddit"]))
 
-            if section.get("sticky") and not config.sandbox:
+            if section.get("sticky") and self.is_moderator(post["subreddit"]):
                 if regex.search(r'^1$', str(section.get("sticky"))):
                     post["sticky"] = 1
                 elif regex.search(r'^(2|true)$', str(section.get("sticky"))):
                     post["sticky"] = 2
+
         except Exception as e:
             log.error("exception reading {} on /r/{}: {}".format(section, subreddit, e))
             return None

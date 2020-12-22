@@ -8,6 +8,5 @@
     "sub_name": "",
     "loglevel": "DEBUG",
     "pull_delay": 30,
-    "sandbox": "",
     "wiki": "bot-schedule"
 }
