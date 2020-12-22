@@ -1,0 +1,13 @@
+{
+    "auth": {
+        "client_id": "",
+        "client_secret": "",
+        "refresh_token": "",
+        "user_agent": "scheduledpostbot v1.0 by <username>"
+    },
+    "sub_name": "",
+    "loglevel": "DEBUG",
+    "pull_delay": 30,
+    "sandbox": "",
+    "wiki": "bot-schedule"
+}

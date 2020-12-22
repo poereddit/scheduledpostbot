@@ -1,6 +1,6 @@
 # scheduledpostbot
 
-A bot for the poe subreddit to schedule and udpate posts from a wiki page config
+A bot for r/pathofexile to schedule and update posts from a wiki page config
 
 HOW TO
 ===
