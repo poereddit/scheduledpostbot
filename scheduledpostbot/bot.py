@@ -97,24 +97,24 @@ class Bot:
                             posts.append(post)
                 return posts
             except (Forbidden, NotFound) as e:
-                log.error("unable to read schedule on /r/{}: {}".format(subreddit, e))
+                log.error("unable to read schedule on /r/{}: {}".format(self.subreddit, e))
                 break
             except Exception as e:
-                log.error("exception reading schedule on /r/{}: {}".format(subreddit, e))
+                log.error("exception reading schedule on /r/{}: {}".format(self.subreddit, e))
 
             delay = (attempt + 1) * 30
             log.debug("sleeping {} seconds".format(delay))
             time.sleep(delay)
 
-        log.error("unable to read schedule on /r/{}. Please investigate!".format(subreddit))
+        log.error("unable to read schedule on /r/{}. Please investigate!".format(self.subreddit))
 
     def get_wiki_page(self, wiki):
         try:
             return self.subreddit.wiki[wiki]
         except (Forbidden, NotFound) as e:
-            log.error("unable to read schedule on /r/{}: {}".format(subreddit, e))
+            log.error("unable to read schedule on /r/{}: {}".format(self.subreddit, e))
         except Exception as e:
-            log.error("exception reading schedule on /r/{}: {}".format(subreddit, e))
+            log.error("exception reading schedule on /r/{}: {}".format(self.subreddit, e))
         return None
 
     def process_section(self, section):
@@ -128,9 +128,9 @@ class Bot:
                 return None
 
             if section.get("sandbox"):
-                post["subreddit"] = reddit.subreddit(section.get("sandbox"))
+                post["subreddit"] = self.reddit.subreddit(section.get("sandbox"))
             else:
-                post["subreddit"] = subreddit
+                post["subreddit"] = self.subreddit
 
             if not (section.get("title") and section.get("post_time") and (section.get("text") or section.get("text_from_wiki"))):
                 log.warning(
@@ -156,7 +156,7 @@ class Bot:
                     post["sticky"] = 2
 
         except Exception as e:
-            log.error("exception reading {} on /r/{}: {}".format(section, subreddit, e))
+            log.error("exception reading {} on /r/{}: {}".format(section, self.subreddit, e))
             return None
 
         return post
@@ -246,7 +246,7 @@ class Bot:
                     return
 
             except Exception as e:
-                logging.error("exception making post {}: {}".format(post, e))
+                log.error("exception making post {}: {}".format(post, e))
 
             delay = (attempt + 1) * 30
             log.debug("sleeping {} seconds".format(delay))
