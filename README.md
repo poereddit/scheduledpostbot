@@ -4,6 +4,10 @@ Makes posts on r/pathofexile from a schedule that mods keep in a wiki page. A mo
 
 The bot is the author of every post it makes. Reddit only lets a post's author edit it, so whenever a mod edits the schedule or the wiki page a post's text comes from, the bot updates the live post to match. That's how several mods can fix a pinned post within minutes of each other.
 
+![A mod fixes a typo on a wiki page and the bot updates the live pinned post](docs/schedule.png)
+
+Redrawn to look like Reddit.
+
 ## The schedule
 
 The schedule is one wiki page, named in `config.json`. It holds one YAML entry per post, separated by `---`:
