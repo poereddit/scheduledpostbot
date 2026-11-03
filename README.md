@@ -8,6 +8,10 @@ The bot is the author of every post it makes. Reddit only lets a post's author e
 
 Redrawn to look like Reddit.
 
+## Devvit version
+
+Reddit is closing public API access in March 2027, so the bot is being ported to Reddit's Devvit platform. The port lives in [`devvit/`](devvit/) and works the same way as an app installed on the subreddit. The Python bot above keeps running until the app takes over.
+
 ## The schedule
 
 The schedule is one wiki page, named in `config.json`. It holds one YAML entry per post, separated by `---`:
