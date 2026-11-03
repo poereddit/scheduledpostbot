@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "poe-scheduled-posts",
+  "server": {},
+  "permissions": {
+    "reddit": {
+      "scope": "user"
+    },
+    "redis": true
+  },
+  "scheduler": {
+    "tasks": {
+      "tick": {
+        "endpoint": "/internal/jobs/tick",
+        "cron": "* * * * *"
+      }
+    }
+  },
+  "settings": {
+    "subreddit": {
+      "wikiPage": {
+        "type": "string",
+        "label": "Schedule wiki page",
+        "helpText": "The wiki page that lists the scheduled posts.",
+        "defaultValue": "bot-schedule"
+      },
+      "windowMinutes": {
+        "type": "number",
+        "label": "Late-post window (minutes)",
+        "helpText": "How long after its post time an entry may still be posted if the app missed it.",
+        "defaultValue": 30
+      }
+    }
+  },
+  "scripts": {
+    "dev": "npm run watch"
+  }
+}
