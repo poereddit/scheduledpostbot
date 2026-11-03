@@ -30,6 +30,7 @@ export type Deps = {
   }
   reddit: {
     getWikiText(page: string): Promise<{content: string; lastEditor?: string | undefined} | null>
+    getPostById(id: string): Promise<PostLike | null>
     myRecentPosts(): Promise<PostLike[]>
     submitPost(opts: {title: string; text: string}): Promise<PostLike>
     notifyMods(subject: string, bodyMarkdown: string): Promise<unknown>
@@ -60,8 +61,15 @@ const realDeps = async (): Promise<Deps> => {
           return null
         }
       },
+      async getPostById(id) {
+        try {
+          return (await realReddit.getPostById(id as `t3_${string}`)) as unknown as PostLike
+        } catch {
+          return null
+        }
+      },
       async myRecentPosts() {
-        const me = await realReddit.getCurrentUsername()
+        const me = (await realReddit.getAppUser())?.username
         if (!me) return []
         const posts = await realReddit.getPostsByUser({username: me, sort: 'new', limit: 100}).all()
         return posts as unknown as PostLike[]
@@ -76,8 +84,17 @@ const realDeps = async (): Promise<Deps> => {
 }
 
 // Keeps one scheduled post in line with its entry: creates it, then fixes distinguish, sticky and text.
+const POST_TTL_S = 90 * 24 * 60 * 60
+const postKey = (d: Deps, title: string) => `post:${d.subreddit.toLowerCase()}:${title}`
+
 async function applyEntry(entry: Entry, existing: PostLike | undefined, deps: Deps): Promise<PostLike> {
-  const post = existing ?? (await deps.reddit.submitPost({title: entry.title, text: entry.text}))
+  let post = existing
+  if (!post) {
+    post = await deps.reddit.submitPost({title: entry.title, text: entry.text})
+    // Remembered straight away, so a failure further down can't lead to a second post next minute.
+    await deps.redis.set(postKey(deps, entry.title), post.id)
+    await deps.redis.expire(postKey(deps, entry.title), POST_TTL_S)
+  }
   if (entry.distinguish && !post.distinguishedBy) await post.distinguish()
   if (entry.sticky && !post.stickied) await post.sticky(entry.sticky)
   if (existing && (existing.body ?? '') !== entry.text) await existing.edit({text: entry.text})
@@ -114,12 +131,22 @@ export async function tick(deps?: Deps): Promise<{entries: number; due: number; 
     }
 
     const recent = await d.reddit.myRecentPosts()
-    const findPost = (title: string) => recent.find(p => p.subredditName.toLowerCase() === d.subreddit.toLowerCase() && p.title === title)
+    // The remembered id is the source of truth; the app's own recent posts are a fallback.
+    const findPost = async (title: string): Promise<PostLike | undefined> => {
+      const id = await d.redis.get(postKey(d, title))
+      if (id) {
+        const byId = await d.reddit.getPostById(id)
+        if (byId) return byId
+      }
+      return recent.find(p => p.subredditName.toLowerCase() === d.subreddit.toLowerCase() && p.title === title)
+    }
 
     let due = 0
     let created = 0
     for (const entry of entries.sort((a, b) => a.postTimeMs - b.postTimeMs)) {
-      const existing = findPost(entry.title)
+      const existing = await findPost(entry.title)
+      // A mod removed or deleted it on purpose: leave it alone.
+      if (existing && (existing.body === '[removed]' || existing.body === '[deleted]')) continue
       if (!isDue(entry, now.getTime(), d.windowMs, existing !== undefined)) continue
       due++
       try {

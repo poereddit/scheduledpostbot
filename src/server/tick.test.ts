@@ -4,7 +4,7 @@ import {type Deps, type PostLike, tick} from './tick.ts'
 
 const T0 = Date.parse('2026-11-05T18:00:00Z')
 
-function fakes(wiki: string | null, startMs = T0) {
+function fakes(wiki: string | null, startMs = T0, listing = true) {
   const kv = new Map<string, string>()
   const posts: PostLike[] = []
   const mails: string[] = []
@@ -25,7 +25,8 @@ function fakes(wiki: string | null, startMs = T0) {
     },
     reddit: {
       getWikiText: async page => (page === 'bot-schedule' ? (wiki === null ? null : {content: wiki, lastEditor: 'modperson'}) : null),
-      myRecentPosts: async () => [...posts],
+      getPostById: async id => posts.find(p => p.id === id) ?? null,
+      myRecentPosts: async () => (listing ? [...posts] : []),
       submitPost: async ({title, text}) => {
         const p: PostLike & {log: string[]} = {
           id: `t3_${++n}`, title, body: text, subredditName: 'testsub', stickied: false, distinguishedBy: undefined, log: [],
@@ -56,6 +57,24 @@ test('a due entry is posted once, distinguished and stickied', async () => {
   const r2 = await tick(deps)
   assert.equal(r2?.created, 0)
   assert.equal(posts.length, 1)
+})
+
+test('a post is not repeated even when the app cannot list its own posts', async () => {
+  const {deps, posts} = fakes(entry('2026-11-05 17:50 UTC'), T0, false)
+  await tick(deps)
+  await tick(deps)
+  await tick(deps)
+  assert.equal(posts.length, 1)
+})
+
+test('a removed post is left alone, not re-created or edited', async () => {
+  const {deps, posts} = fakes(entry('2026-11-05 17:50 UTC'))
+  await tick(deps)
+  posts[0]!.body = '[removed]'
+  const r = await tick(deps)
+  assert.equal(posts.length, 1)
+  assert.equal(r?.created, 0)
+  assert.equal(posts[0]!.body, '[removed]')
 })
 
 test('a future entry waits, then posts when its time comes', async () => {
