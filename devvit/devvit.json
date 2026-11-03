@@ -29,6 +29,12 @@
         "label": "Late-post window (minutes)",
         "helpText": "How long after its post time an entry may still be posted if the app missed it.",
         "defaultValue": 30
+      },
+      "previousAccount": {
+        "type": "string",
+        "label": "Previous bot account",
+        "helpText": "The account that made scheduled posts before this app. An entry it already posted is not posted again.",
+        "defaultValue": ""
       }
     }
   },

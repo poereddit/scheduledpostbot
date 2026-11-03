@@ -32,6 +32,7 @@ export type Deps = {
     getWikiText(page: string): Promise<{content: string; lastEditor?: string | undefined} | null>
     getPostById(id: string): Promise<PostLike | null>
     myRecentPosts(): Promise<PostLike[]>
+    previousAccountPosts(): Promise<PostLike[]>
     submitPost(opts: {title: string; text: string}): Promise<PostLike>
     notifyMods(subject: string, bodyMarkdown: string): Promise<unknown>
   }
@@ -44,6 +45,7 @@ const LOCK_TTL_S = 55
 const realDeps = async (): Promise<Deps> => {
   const wikiPage = ((await settings.get<string>('wikiPage')) ?? 'bot-schedule').trim() || 'bot-schedule'
   const minutes = Number((await settings.get<number>('windowMinutes')) ?? 30)
+  const previousAccount = ((await settings.get<string>('previousAccount')) ?? '').trim().replace(/^u\//i, '')
   const subreddit = context.subredditName
   return {
     nowMs: () => Date.now(),
@@ -73,6 +75,15 @@ const realDeps = async (): Promise<Deps> => {
         if (!me) return []
         const posts = await realReddit.getPostsByUser({username: me, sort: 'new', limit: 100}).all()
         return posts as unknown as PostLike[]
+      },
+      async previousAccountPosts() {
+        if (!previousAccount) return []
+        try {
+          const posts = await realReddit.getPostsByUser({username: previousAccount, sort: 'new', limit: 100}).all()
+          return posts as unknown as PostLike[]
+        } catch {
+          return []
+        }
       },
       async submitPost({title, text}) {
         return (await realReddit.submitPost({subredditName: subreddit, title, text, runAs: 'APP'})) as unknown as PostLike
@@ -131,6 +142,10 @@ export async function tick(deps?: Deps): Promise<{entries: number; due: number; 
     }
 
     const recent = await d.reddit.myRecentPosts()
+    const inThisSub = (p: PostLike) => p.subredditName.toLowerCase() === d.subreddit.toLowerCase()
+    // Posts the bot account made before this app took over. The app can't edit another account's
+    // posts, but an entry already posted there must not be posted a second time.
+    const previous = (await d.reddit.previousAccountPosts()).filter(inThisSub)
     // The remembered id is the source of truth; the app's own recent posts are a fallback.
     const findPost = async (title: string): Promise<PostLike | undefined> => {
       const id = await d.redis.get(postKey(d, title))
@@ -138,13 +153,14 @@ export async function tick(deps?: Deps): Promise<{entries: number; due: number; 
         const byId = await d.reddit.getPostById(id)
         if (byId) return byId
       }
-      return recent.find(p => p.subredditName.toLowerCase() === d.subreddit.toLowerCase() && p.title === title)
+      return recent.find(p => inThisSub(p) && p.title === title)
     }
 
     let due = 0
     let created = 0
     for (const entry of entries.sort((a, b) => a.postTimeMs - b.postTimeMs)) {
       const existing = await findPost(entry.title)
+      if (!existing && previous.some(p => p.title === entry.title)) continue
       // A mod removed or deleted it on purpose: leave it alone.
       if (existing && (existing.body === '[removed]' || existing.body === '[deleted]')) continue
       if (!isDue(entry, now.getTime(), d.windowMs, existing !== undefined)) continue

@@ -4,7 +4,7 @@ import {type Deps, type PostLike, tick} from './tick.ts'
 
 const T0 = Date.parse('2026-11-05T18:00:00Z')
 
-function fakes(wiki: string | null, startMs = T0, listing = true) {
+function fakes(wiki: string | null, startMs = T0, listing = true, previous: PostLike[] = []) {
   const kv = new Map<string, string>()
   const posts: PostLike[] = []
   const mails: string[] = []
@@ -27,6 +27,7 @@ function fakes(wiki: string | null, startMs = T0, listing = true) {
       getWikiText: async page => (page === 'bot-schedule' ? (wiki === null ? null : {content: wiki, lastEditor: 'modperson'}) : null),
       getPostById: async id => posts.find(p => p.id === id) ?? null,
       myRecentPosts: async () => (listing ? [...posts] : []),
+      previousAccountPosts: async () => previous,
       submitPost: async ({title, text}) => {
         const p: PostLike & {log: string[]} = {
           id: `t3_${++n}`, title, body: text, subredditName: 'testsub', stickied: false, distinguishedBy: undefined, log: [],
@@ -117,4 +118,17 @@ test('an unreadable schedule page is reported, and a second tick while locked is
   assert.deepEqual(f.mails, ['Scheduled posts: cannot read the schedule'])
   f.kv.set('tick-lock', '1')
   assert.equal(await tick(f.deps), null)
+})
+
+test('an entry the previous bot account already posted is not posted again, and its post is left alone', async () => {
+  const old: PostLike = {
+    id: 't3_old', title: 'Daily 05 Nov', body: 'from the old bot', subredditName: 'TestSub', stickied: true,
+    async edit() { throw new Error('cannot edit another account\'s post') },
+    async sticky() { throw new Error('should not be touched') },
+    async distinguish() { throw new Error('should not be touched') },
+  }
+  const {deps, posts, mails} = fakes(entry('2026-11-05 17:55 UTC'), T0, true, [old])
+  await tick(deps)
+  assert.equal(posts.length, 0)
+  assert.equal(mails.length, 0)
 })
