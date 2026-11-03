@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "scheduledpostbot",
+  "name": "poe-scheduled-posts",
   "version": "0.0.0",
   "license": "BSD-3-Clause",
   "type": "module",
@@ -12,9 +12,9 @@
     "watch": "esbuild --bundle --log-level=warning --sourcemap=linked --target=es2023 --format=cjs --outdir=dist/server --platform=node src/server/index.ts --watch=forever"
   },
   "devDependencies": {
-    "@devvit/web": "^0.15.2",
+    "@devvit/web": "0.15.2",
     "@types/node": "24.13.3",
-    "devvit": "^0.15.2",
+    "devvit": "0.15.2",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"
   },
